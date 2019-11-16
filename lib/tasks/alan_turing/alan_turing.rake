@@ -3,29 +3,11 @@ require "csv"
 namespace :db do
   desc "Import data from the CSV files"
   task alan_turing: :environment do
-
-    puts "Adjusting Settings: "
+    puts Time.current
+    print "Adjusting Settings: "
     Setting["feature.featured_proposals"] = true
     Setting["proposal_notification_minimum_interval_in_days"] = 0
     puts "done!"
-
-    puts "Creating Users"
-    (2..654722).each do |i|
-      User.create!(username: "user_#{i}",
-                   email: "user_#{i}@consul.dev",
-                   password: "12345678",
-                   password_confirmation: "12345678",
-                   confirmed_at: Time.current,
-                   terms_of_service: "1")
-      print "." if (i % 100) == 0
-    end
-    User.create!(username: "User deleted",
-                   email: "user_deleted@consul.dev",
-                   password: "12345678",
-                   password_confirmation: "12345678",
-                   confirmed_at: Time.current,
-                   terms_of_service: "1")
-    puts "\nUsers created!"
 
     puts "Creating Proposals"
     csv_file = "lib/tasks/alan_turing/proposals.csv"
@@ -41,52 +23,92 @@ namespace :db do
         attributes["description"] = attributes["description"].truncate(description_max_length)
       end
       proposal = Proposal.create!(attributes)
-      print "." if (proposal.id % 10) == 0
+      print "." if (proposal.id % 100) == 0
     end
     puts "\nProposals created!"
 
     puts "Asigning Users to Proposals"
-    csv_file = "lib/tasks/alan_turing/proposals-users-full.csv"
+    User.create!(username: "Usuario eliminado",
+                 email: "usuario_eliminado@consul.dev",
+                 password: "12345678",
+                 password_confirmation: "12345678",
+                 confirmed_at: Time.current,
+                 terms_of_service: "1")
     user_deleted_id = User.last.id
+
+    csv_file = "lib/tasks/alan_turing/proposals-users-full.csv"
     CSV.foreach(csv_file, col_sep: ";", headers: true) do |line|
       attributes = line.to_hash
-      proposal = Proposal.find(attributes["proposal"])
-      if attributes["usernumber"].present?
-        proposal.update_columns author_id: attributes["usernumber"]
-      else
-        proposal.update_columns author_id: user_deleted_id
+      if Proposal.find_by_id(attributes["proposal"])
+        proposal = Proposal.find(attributes["proposal"])
+        if attributes["usernumber"].present?
+          unless User.find_by_id(attributes["usernumber"])
+            User.create!(id: attributes["usernumber"],
+                       username: "usuario_#{attributes["usernumber"]}",
+                       email: "usuario_#{attributes["usernumber"]}@consul.dev",
+                       password: "12345678",
+                       password_confirmation: "12345678",
+                       confirmed_at: Time.current,
+                       terms_of_service: "1")
+          end
+          proposal.update_columns author_id: attributes["usernumber"]
+        else
+          proposal.update_columns author_id: user_deleted_id
+        end
+        print "." if (proposal.id % 100) == 0
       end
-      print "." if (proposal.id % 10) == 0
     end
     puts "\nUsers assigned to Proposals!"
 
     puts "Creating Tags"
     csv_file = "lib/tasks/alan_turing/tags.csv"
     CSV.foreach(csv_file, col_sep: ";", headers: true) do |line|
-      tag = Tag.create!(line.to_hash)
-      print "." if (tag.id % 10) == 0
+      puts line.to_hash if Tag.find_by_name(line.to_hash["name"])
+      puts line.to_hash unless line.to_hash["name"].present?
+      unless Tag.find_by_name(line.to_hash["name"])
+        if line.to_hash["name"].present?
+          tag = Tag.create!(line.to_hash)
+          print "." if (tag.id % 100) == 0
+        end
+      end
     end
     puts "\nTags created!"
 
     puts "Asigning Tags to Proposals"
+    ids = {
+      "4995" => "3046",
+      "6473" => "93",
+      "6488" => "1988",
+      "6509" => "113",
+      "7258" => "3990",
+      "7259" => "111",
+      "7262" => "1509",
+      "7263" => "148",
+      "7276" => "6659"
+    }
     csv_file = "lib/tasks/alan_turing/tagging.csv"
     CSV.foreach(csv_file, col_sep: ";", headers: true) do |line|
-      attributes = line.to_hash
-      if attributes["taggable_type"] == "Proposal"
-        attributes["tag_id"] = attributes["tag_id"].to_i
-        attributes["taggable_id"] = attributes["taggable_id"].to_i
-        attributes["context"] = attributes["taggable_type"]
-        tagging = Tagging.create!(attributes)
-        print "." if (tagging.id % 10) == 0
+      unless line.to_hash["tag_id"].to_i == 6622 # it's a tag without name
+        attributes = line.to_hash
+        attributes["tag_id"] = ids[attributes["tag_id"]] if ids[attributes["tag_id"]]
+        if attributes["taggable_type"] == "Proposal"
+          attributes["tag_id"] = attributes["tag_id"].to_i
+          attributes["taggable_id"] = attributes["taggable_id"].to_i
+          attributes["context"] = "tags"
+          tagging = Tagging.create!(attributes)
+          print "." if (tagging.id % 100) == 0
+        end
       end
     end
     puts "\nTags assigned to Proposals!"
 
     puts "Creating Comments"
+    users_id = User.pluck(:id).to_a
     csv_file = "lib/tasks/alan_turing/comments.csv"
     CSV.foreach(csv_file, col_sep: ";", headers: true) do |line|
       attributes = line.to_hash
       if attributes["commentable_type"] == "Proposal"
+        attributes["user_id"] = users_id.sample
         attributes["id"] = attributes["id"].to_i
         attributes["commentable_id"] = attributes["commentable_id"].to_i
         attributes["cached_votes_total"] = attributes["cached_votes_total"].to_i
@@ -100,5 +122,6 @@ namespace :db do
       end
     end
     puts "\nComments created!"
+    puts Time.current
   end
 end

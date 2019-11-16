@@ -39,3 +39,8 @@ end
 every 1.day, at: "3:00 am", roles: [:cron] do
   rake "votes:reset_hot_score"
 end
+
+every :reboot do
+  command "cd #{@path} && bundle exec puma -C config/puma/#{@environment}.rb"
+  command "cd #{@path} && RAILS_ENV=#{@environment} bin/delayed_job restart"
+end

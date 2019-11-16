@@ -63,8 +63,6 @@ namespace :db do
     puts "Creating Tags"
     csv_file = "lib/tasks/alan_turing/tags.csv"
     CSV.foreach(csv_file, col_sep: ";", headers: true) do |line|
-      puts line.to_hash if Tag.find_by_name(line.to_hash["name"])
-      puts line.to_hash unless line.to_hash["name"].present?
       unless Tag.find_by_name(line.to_hash["name"])
         if line.to_hash["name"].present?
           tag = Tag.create!(line.to_hash)

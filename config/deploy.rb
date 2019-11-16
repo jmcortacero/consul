@@ -56,13 +56,14 @@ namespace :deploy do
 
   before :publishing, "smtp_ssl_and_delay_jobs_secrets"
 
-  after :publishing, "deploy:restart"
+  after :publishing, "setup_puma"
+
   after :published, "delayed_job:restart"
   after :published, "refresh_sitemap"
 
-  before "deploy:restart", "setup_puma"
-
   after :finishing, "deploy:cleanup"
+
+  before "deploy:restart", "puma:restart"
 
   desc "Deploys and runs the tasks needed to upgrade to a new release"
   task :upgrade do
